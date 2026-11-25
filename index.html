@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Circolo Hold'em — Poker Multiplayer</title>
+    <meta
+      name="description"
+      content="Applicazione web di Poker Texas Hold'em Multiplayer in tempo reale con modalità Spin & Go, Tornei Pubblici e Privati, e valuta virtuale gratuita."
+    />
+    <meta property="og:title" content="Circolo Hold'em — Poker Multiplayer" />
+    <meta
+      property="og:description"
+      content="Gioca a Texas Hold'em multiplayer in tempo reale con amici o altri utenti online: Spin & Go con moltiplicatore e Tornei Sit & Go."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app-root" class="app-shell">
+      <!-- ===================================================================
+           SCHERMATA 1: ACCESSO RAPIDO CON NICKNAME
+      ==================================================================== -->
+      <section id="login-screen" class="screen login-screen" aria-label="Accesso al circolo">
+        <div class="login-backdrop"></div>
+        <div class="login-card">
+          <div class="login-brand">
+            <div class="suit-emblem" aria-hidden="true">♠</div>
+            <h1>Circolo Hold'em</h1>
+            <p class="login-subtitle">
+              Texas Hold'em No-Limit Multiplayer · Solo Fiches Virtuali Gratuite
+            </p>
+          </div>
+
+          <form id="login-form" class="login-form" autocomplete="off">
+            <div class="field-group">
+              <label for="nickname-input">Nickname al tavolo (opzionale)</label>
+              <input
+                id="nickname-input"
+                type="text"
+                maxlength="18"
+                placeholder="Lascia vuoto per usare il tuo nome"
+              />
+            </div>
+
+            <div class="field-group">
+              <label>Colore stemma giocatore</label>
+              <div id="avatar-color-picker" class="color-swatches" role="radiogroup" aria-label="Colore stemma">
+                <button type="button" class="swatch active" data-color="#b91c1c" style="--swatch:#b91c1c" aria-label="Rosso rubino"></button>
+                <button type="button" class="swatch" data-color="#1d4ed8" style="--swatch:#1d4ed8" aria-label="Blu reale"></button>
+                <button type="button" class="swatch" data-color="#0f766e" style="--swatch:#0f766e" aria-label="Verde smeraldo"></button>
+                <button type="button" class="swatch" data-color="#b45309" style="--swatch:#b45309" aria-label="Ambra oro"></button>
+                <button type="button" class="swatch" data-color="#6d28d9" style="--swatch:#6d28d9" aria-label="Viola ametista"></button>
+                <button type="button" class="swatch" data-color="#334155" style="--swatch:#334155" aria-label="Ardesia"></button>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-google-login" class="btn btn-gold btn-lg w-full">
+              Accedi con Google ed Entra in Lobby
+            </button>
+          </form>
+
+          <div class="login-footnote">
+            <span>10.000 fiches gratuite iniziali</span>
+            <span aria-hidden="true">·</span>
+            <span id="login-sync-mode">Multiplayer Online Cloud (Firebase)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           SCHERMATA 2: LOBBY PRINCIPALE
+      ==================================================================== -->
+      <section id="lobby-screen" class="screen lobby-screen hidden" aria-label="Lobby principale">
+        <header class="topbar">
+          <div class="topbar-brand">
+            <span class="brand-mark">Circolo Hold'em</span>
+          </div>
+
+          <nav class="topbar-nav" aria-label="Sezioni lobby">
+            <button type="button" class="nav-link active" data-lobby-tab="spin">Spin &amp; Go</button>
+            <button type="button" class="nav-link" data-lobby-tab="tournaments">Tornei &amp; Sit &amp; Go</button>
+            <button type="button" class="nav-link" data-lobby-tab="bots">Tavolo vs Bot</button>
+            <button type="button" id="btn-open-hands-guide" class="nav-link">Scala Punti</button>
+            <button type="button" id="btn-open-deck-prefs" class="nav-link">Mazzo 4 Colori</button>
+          </nav>
+
+          <div class="topbar-actions">
+            <div class="wallet-summary">
+              <span id="lobby-player-name" class="player-name-label">Giocatore</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span id="lobby-balance" class="balance-value tabular-nums">10.000</span>
+              <span class="balance-unit">fiches</span>
+            </div>
+            <button type="button" id="btn-topup" class="btn btn-gold btn-sm hidden">
+              Ricarica Gratis
+            </button>
+            <button type="button" id="btn-logout" class="btn btn-ghost btn-sm">
+              Cambia Utente
+            </button>
+          </div>
+        </header>
+
+        <main class="lobby-main">
+          <!-- Avviso modalità sync -->
+          <div class="lobby-banner">
+            <div class="lobby-banner-text">
+              <strong id="sync-mode-title">Sincronizzazione Locale Multi-Scheda attiva</strong>
+              <span id="sync-mode-desc">
+                Apri un'altra scheda del browser a questo stesso indirizzo con un nickname diverso per testare partite reali senza bot.
+              </span>
+            </div>
+            <div class="lobby-banner-actions">
+              <button type="button" id="btn-copy-invite-url" class="btn btn-outline btn-sm">
+                Copia Link Invito
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB A: SPIN & GO -->
+          <div id="tab-spin" class="lobby-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Spin &amp; Go · 3 Giocatori Hyper-Turbo</h2>
+                <p class="panel-desc">
+                  Tavoli da esattamente 3 giocatori reali. All'iscrizione del terzo partecipante la ruota estrae un moltiplicatore casuale fino a 100x sul montepremi. Stack iniziale 500 fiches, bui ogni 2 minuti.
+                </p>
+              </div>
+            </div>
+
+            <div id="spin-tiers-grid" class="spin-grid">
+              <!-- Popolato dinamicamente da app.js -->
+            </div>
+          </div>
+
+          <!-- TAB B: TORNEI MULTI-TAVOLO / SIT & GO -->
+          <div id="tab-tournaments" class="lobby-panel hidden">
+            <div class="panel-header panel-header-split">
+              <div>
+                <h2>Tornei Sit &amp; Go e Multi-Tavolo</h2>
+                <p class="panel-desc">
+                  Unisciti a un tavolo pubblico, inserisci un codice invito privato oppure configura un torneo personalizzato con gli amici.
+                </p>
+              </div>
+              <div class="panel-header-cta">
+                <button type="button" id="btn-join-by-code" class="btn btn-outline">
+                  Unisciti con Codice
+                </button>
+                <button type="button" id="btn-open-create-tournament" class="btn btn-gold">
+                  + Crea Torneo
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <div class="segmented-control" role="tablist" aria-label="Filtro tornei">
+                <button type="button" class="seg-btn active" data-tourn-filter="all">Tutti</button>
+                <button type="button" class="seg-btn" data-tourn-filter="public">Pubblici</button>
+                <button type="button" class="seg-btn" data-tourn-filter="private">Privati</button>
+                <button type="button" class="seg-btn" data-tourn-filter="mine">I Miei</button>
+              </div>
+            </div>
+
+            <div id="tournaments-list" class="tournaments-grid">
+              <!-- Popolato dinamicamente da app.js -->
+            </div>
+          </div>
+
+          <!-- TAB C: TAVOLO CONTRO BOT -->
+          <div id="tab-bots" class="lobby-panel hidden">
+            <div class="panel-header">
+              <div>
+                <h2>Tavolo Rapido contro Bot</h2>
+                <p class="panel-desc">
+                  Avvia subito una partita in solitaria contro avversari artificiali per allenarti o giocare senza attendere altri utenti. Scegli un tavolo rapido oppure personalizza le regole.
+                </p>
+              </div>
+            </div>
+
+            <div class="bots-setup-layout">
+              <div class="bot-presets-grid">
+                <article class="spin-card">
+                  <div class="spin-card-top">
+                    <span class="spin-buyin">Sfida 1 vs 1</span>
+                    <span class="spin-max-win">Allenamento Gratis</span>
+                  </div>
+                  <div class="spin-meta-line">
+                    <span>2 Giocatori (1 Bot)</span>
+                    <span aria-hidden="true">·</span>
+                    <span>1.500 fiches</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Turbo 1m</span>
+                  </div>
+                  <p class="bot-card-note">Ideale per esercitarsi nel gioco Heads-Up veloce.</p>
+                  <button type="button" class="btn btn-gold w-full" data-bot-preset="headsup">
+                    Gioca Subito (Gratis)
+                  </button>
+                </article>
+
+                <article class="spin-card">
+                  <div class="spin-card-top">
+                    <span class="spin-buyin">Tavolo 6-Max</span>
+                    <span class="spin-max-win">Premio 3.000 fiches</span>
+                  </div>
+                  <div class="spin-meta-line">
+                    <span>6 Giocatori (5 Bot)</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Buy-in 500</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Normale 3m</span>
+                  </div>
+                  <p class="bot-card-note">Dinamica classica a sei posti con stili di gioco misti.</p>
+                  <button type="button" class="btn btn-gold w-full" data-bot-preset="sixmax">
+                    Avvia 6-Max (500 fiches)
+                  </button>
+                </article>
+
+                <article class="spin-card">
+                  <div class="spin-card-top">
+                    <span class="spin-buyin">Full Ring Casinò</span>
+                    <span class="spin-max-win">Premio 9.000 fiches</span>
+                  </div>
+                  <div class="spin-meta-line">
+                    <span>9 Giocatori (8 Bot)</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Buy-in 1.000</span>
+                    <span aria-hidden="true">·</span>
+                    <span>Normale 3m</span>
+                  </div>
+                  <p class="bot-card-note">Tavolo completo da torneo con premi ai primi 3 posti.</p>
+                  <button type="button" class="btn btn-gold w-full" data-bot-preset="fullring">
+                    Avvia Full Ring (1.000)
+                  </button>
+                </article>
+              </div>
+
+              <form id="bot-custom-form" class="bot-custom-card" autocomplete="off">
+                <h3>Tavolo Personalizzato vs Bot</h3>
+                <div class="form-row-2">
+                  <div class="field-group">
+                    <label for="bot-count-select">Numero di Bot</label>
+                    <select id="bot-count-select">
+                      <option value="1">1 Bot (Heads-Up)</option>
+                      <option value="2">2 Bot (3-Max)</option>
+                      <option value="5" selected>5 Bot (6-Max)</option>
+                      <option value="8">8 Bot (Full Ring 9)</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="bot-style-select">Stile Avversari</label>
+                    <select id="bot-style-select">
+                      <option value="mixed" selected>Misto (Prudenti &amp; Aggressivi)</option>
+                      <option value="tight">Prudente (Tight)</option>
+                      <option value="balanced">Equilibrato</option>
+                      <option value="aggressive">Aggressivo (Loose-Aggressive)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-row-2">
+                  <div class="field-group">
+                    <label for="bot-buyin-select">Buy-in (fiches)</label>
+                    <select id="bot-buyin-select">
+                      <option value="0" selected>0 (Allenamento Gratis)</option>
+                      <option value="250">250 fiches</option>
+                      <option value="500">500 fiches</option>
+                      <option value="1000">1.000 fiches</option>
+                      <option value="2500">2.500 fiches</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label for="bot-stack-select">Stack Iniziale</label>
+                    <select id="bot-stack-select">
+                      <option value="1500">1.500 fiches</option>
+                      <option value="3000" selected>3.000 fiches</option>
+                      <option value="5000">5.000 fiches</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label for="bot-speed-select">Velocità Bui</label>
+                  <select id="bot-speed-select">
+                    <option value="turbo">Turbo (1 minuto / livello)</option>
+                    <option value="normal" selected>Normale (3 minuti / livello)</option>
+                    <option value="slow">Lenta (5 minuti / livello)</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn btn-outline w-full">
+                  Crea e Avvia Tavolo vs Bot
+                </button>
+              </form>
+            </div>
+          </div>
+        </main>
+      </section>
+
+      <!-- ===================================================================
+           SCHERMATA 3: TAVOLO DA POKER
+      ==================================================================== -->
+      <section id="table-screen" class="screen table-screen hidden" aria-label="Tavolo da gioco">
+        <!-- HUD Superiore del Tavolo -->
+        <header class="table-hud">
+          <div class="hud-left">
+            <button type="button" id="btn-leave-table" class="btn btn-ghost btn-sm">
+              ← Torna in Lobby
+            </button>
+            <div class="hud-title-block">
+              <span id="table-title-label" class="hud-table-title">Tavolo Poker</span>
+              <span id="table-subtitle-label" class="hud-table-meta tabular-nums">
+                Mano #0 · Bui 10/20
+              </span>
+            </div>
+          </div>
+
+          <div class="hud-center">
+            <div class="hud-metric">
+              <span class="hud-metric-label">Livello Bui</span>
+              <span id="hud-blinds" class="hud-metric-val tabular-nums">10 / 20</span>
+            </div>
+            <div class="hud-divider" aria-hidden="true"></div>
+            <div class="hud-metric">
+              <span class="hud-metric-label">Prossimo Livello</span>
+              <span id="hud-blind-timer" class="hud-metric-val tabular-nums">02:00</span>
+            </div>
+            <div class="hud-divider" aria-hidden="true"></div>
+            <div class="hud-metric">
+              <span class="hud-metric-label">Montepremi</span>
+              <span id="hud-prizepool" class="hud-metric-val tabular-nums gold-text">600 fiches</span>
+            </div>
+          </div>
+
+          <div class="hud-right">
+            <button type="button" id="btn-table-deck-toggle" class="btn btn-ghost btn-sm">
+              4 Colori
+            </button>
+            <button type="button" id="btn-mute-audio" class="btn btn-ghost btn-sm" aria-pressed="false">
+              Audio On
+            </button>
+          </div>
+        </header>
+
+        <!-- Area Centrale: Feltro Ovale & Giocatori -->
+        <main class="table-arena">
+          <div class="poker-table-stage" id="poker-table-stage">
+            <!-- Bordo imbottito in pelle scura + panno verde casinò -->
+            <div class="table-rail">
+              <div class="table-felt">
+                <div class="felt-inner-line" aria-hidden="true"></div>
+                <div class="felt-crest" aria-hidden="true">
+                  <span>CIRCOLO HOLD'EM</span>
+                </div>
+
+                <!-- Banner momentaneo azione eseguita dal giocatore -->
+                <div id="action-flash-banner" class="action-flash-banner hidden" aria-live="polite"></div>
+
+                <!-- Piatto Totale & Side Pots -->
+                <div class="pot-cluster" id="pot-cluster">
+                  <div class="main-pot-display">
+                    <span class="chip-icon" aria-hidden="true"></span>
+                    <span>Piatto:</span>
+                    <strong id="total-pot-value" class="tabular-nums">0</strong>
+                  </div>
+                  <div id="side-pots-list" class="side-pots-list"></div>
+                </div>
+
+                <!-- Mazzo del Dealer + 5 Carte Comuni (Flop, Turn, River) -->
+                <div class="board-row">
+                  <div id="dealer-deck-shoe" class="dealer-deck-shoe" aria-hidden="true">
+                    <div class="deck-card-layer layer-3"></div>
+                    <div class="deck-card-layer layer-2"></div>
+                    <div class="deck-card-layer layer-1">
+                      <span class="deck-emblem">♠&#xFE0E;</span>
+                    </div>
+                  </div>
+                  <div class="community-cards" id="community-cards" aria-label="Carte comuni">
+                    <!-- Popolato da app.js -->
+                  </div>
+                </div>
+
+                <!-- Banner Esito / Azione corrente -->
+                <div id="table-status-banner" class="table-status-banner">
+                  In attesa dei giocatori...
+                </div>
+              </div>
+            </div>
+
+            <!-- Contenitore Postazioni Giocatori (fino a 9 attorno all'ovale) -->
+            <div id="seats-layer" class="seats-layer">
+              <!-- Popolato da app.js -->
+            </div>
+
+            <!-- Overlay Spin & Go Multiplier Wheel -->
+            <div id="spin-wheel-overlay" class="spin-wheel-overlay hidden" role="dialog" aria-modal="true" aria-label="Estrazione Moltiplicatore Spin & Go">
+              <div class="spin-wheel-card">
+                <p class="spin-kicker">Estrazione Montepremi Spin &amp; Go</p>
+                <div class="wheel-stage">
+                  <div class="wheel-pointer" aria-hidden="true">▼</div>
+                  <div id="spin-reel-track" class="wheel-reel-window">
+                    <div id="spin-reel-strip" class="wheel-reel-strip"></div>
+                  </div>
+                </div>
+                <div id="spin-result-summary" class="spin-result-summary hidden">
+                  <span id="spin-result-multiplier" class="spin-big-mult">2x</span>
+                  <span id="spin-result-prize" class="spin-big-prize tabular-nums">Montepremi: 600 fiches</span>
+                  <span id="spin-result-payout" class="spin-payout-note">Winner-Takes-All (100% al 1° classificato)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overlay Fine Torneo / Vittoria -->
+            <div id="tournament-over-overlay" class="tournament-over-overlay hidden" role="dialog" aria-modal="true">
+              <div class="tourn-over-card">
+                <p class="tourn-over-kicker">Partita Conclusa</p>
+                <h2 id="tourn-over-title">Vincitore del Torneo</h2>
+                <p id="tourn-over-subtitle" class="tourn-over-subtitle"></p>
+                <div id="tourn-over-standings" class="tourn-over-standings"></div>
+                <div class="tourn-over-actions">
+                  <button type="button" id="btn-finish-replay-bots" class="btn btn-gold btn-lg hidden">
+                    Gioca Ancora vs Bot
+                  </button>
+                  <button type="button" id="btn-finish-back-lobby" class="btn btn-outline btn-lg">
+                    Torna alla Lobby
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <!-- Barra Inferiore: Controlli Puntata + Chat Comprimibile -->
+        <footer class="table-footer">
+          <!-- Chat Comprimibile al Tavolo -->
+          <aside id="table-chat-box" class="chat-drawer collapsed">
+            <button type="button" id="btn-toggle-chat" class="chat-toggle-bar" aria-expanded="false">
+              <span>Chat al Tavolo</span>
+              <span id="chat-unread-count" class="chat-unread hidden">0</span>
+              <span class="chat-chevron" aria-hidden="true">▲</span>
+            </button>
+            <div class="chat-body">
+              <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+              <form id="chat-form" class="chat-form" autocomplete="off">
+                <input
+                  id="chat-input"
+                  type="text"
+                  maxlength="160"
+                  placeholder="Scrivi un messaggio..."
+                />
+                <button type="submit" class="btn btn-gold btn-sm">Invia</button>
+              </form>
+            </div>
+          </aside>
+
+          <!-- Pannello Azioni Giocatore -->
+          <div id="action-controls-panel" class="action-controls">
+            <div class="action-top-meta">
+              <div class="my-hand-strength" id="my-hand-strength">
+                <!-- Mostra il punto attuale della propria mano -->
+              </div>
+              <button type="button" id="btn-next-hand-now" class="btn btn-gold btn-sm hidden">
+                Mano Successiva →
+              </button>
+            </div>
+
+            <!-- Pre-azioni quando si attende il proprio turno -->
+            <div id="pre-actions-bar" class="pre-actions-bar hidden">
+              <button type="button" class="pre-action-btn" data-pre-action="checkfold">
+                Check / Fold automatico
+              </button>
+              <button type="button" class="pre-action-btn" data-pre-action="checkcall">
+                Check / Call automatico
+              </button>
+            </div>
+
+            <div class="raise-controls-row" id="raise-controls-row">
+              <div class="quick-bets">
+                <button type="button" class="btn-quick" data-bet-preset="min">Min</button>
+                <button type="button" class="btn-quick" data-bet-preset="half">1/2 Pot</button>
+                <button type="button" class="btn-quick" data-bet-preset="pot">Pot</button>
+                <button type="button" class="btn-quick" data-bet-preset="allin">All-In</button>
+              </div>
+              <div class="slider-group">
+                <input
+                  id="raise-slider"
+                  type="range"
+                  min="20"
+                  max="500"
+                  step="5"
+                  value="20"
+                  aria-label="Importo puntata o rilancio"
+                />
+                <input
+                  id="raise-number-input"
+                  type="number"
+                  class="tabular-nums"
+                  min="20"
+                  max="500"
+                  step="5"
+                  value="20"
+                  aria-label="Importo esatto puntata"
+                />
+              </div>
+            </div>
+
+            <div class="primary-actions-row" id="primary-actions-row">
+              <button type="button" id="btn-fold" class="btn-action btn-fold">
+                Fold <kbd>F</kbd>
+              </button>
+              <button type="button" id="btn-check-call" class="btn-action btn-call">
+                Check <kbd>C</kbd>
+              </button>
+              <button type="button" id="btn-raise" class="btn-action btn-raise">
+                Raise <kbd>R</kbd>
+              </button>
+            </div>
+          </div>
+        </footer>
+      </section>
+    </div>
+
+    <!-- ===================================================================
+         MODALI
+    ==================================================================== -->
+
+    <!-- Modale Creazione Torneo -->
+    <div id="create-tournament-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="create-tourn-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="create-tourn-title">Crea Nuovo Torneo</h3>
+          <button type="button" class="modal-close" data-close-modal="create-tournament-modal" aria-label="Chiudi">✕</button>
+        </div>
+
+        <form id="create-tournament-form" class="modal-form" autocomplete="off">
+          <div class="field-group">
+            <label for="tourn-name">Nome del Torneo</label>
+            <input
+              id="tourn-name"
+              type="text"
+              maxlength="36"
+              required
+              placeholder="Es. Serata Tra Amici Turbo"
+            />
+          </div>
+
+          <div class="form-row-2">
+            <div class="field-group">
+              <label for="tourn-visibility">Visibilità</label>
+              <select id="tourn-visibility">
+                <option value="public">Pubblico (visibile in lobby)</option>
+                <option value="private">Privato (protetto da codice)</option>
+              </select>
+            </div>
+            <div class="field-group" id="tourn-code-group">
+              <label for="tourn-invite-code">Codice Invito (opzionale)</label>
+              <input
+                id="tourn-invite-code"
+                type="text"
+                maxlength="12"
+                placeholder="Vuoto = generato in automatico"
+              />
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="field-group">
+              <label for="tourn-max-players">Massimo Giocatori</label>
+              <select id="tourn-max-players">
+                <option value="2">2 Giocatori (Heads-Up)</option>
+                <option value="4">4 Giocatori (Tavolo Singolo)</option>
+                <option value="6" selected>6 Giocatori (6-Max Sit &amp; Go)</option>
+                <option value="9">9 Giocatori (Full Ring)</option>
+                <option value="12">12 Giocatori (Multi-Tavolo 2x6)</option>
+                <option value="18">18 Giocatori (Multi-Tavolo 2x9)</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="tourn-blind-speed">Velocità Bui</label>
+              <select id="tourn-blind-speed">
+                <option value="slow">Lenta (5 minuti / livello)</option>
+                <option value="normal" selected>Normale (3 minuti / livello)</option>
+                <option value="turbo">Turbo (1 minuto / livello)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="field-group">
+              <label for="tourn-buyin">Buy-in Virtuale (fiches)</label>
+              <select id="tourn-buyin">
+                <option value="0">0 (Freeroll Gratuito)</option>
+                <option value="250">250 fiches</option>
+                <option value="500" selected>500 fiches</option>
+                <option value="1000">1.000 fiches</option>
+                <option value="2500">2.500 fiches</option>
+                <option value="5000">5.000 fiches</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="tourn-stack">Stack Iniziale</label>
+              <select id="tourn-stack">
+                <option value="1500">1.500 fiches</option>
+                <option value="3000" selected>3.000 fiches</option>
+                <option value="5000">5.000 fiches</option>
+                <option value="10000">10.000 fiches</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="field-group">
+              <label for="tourn-start-mode">Modalità di Avvio</label>
+              <select id="tourn-start-mode">
+                <option value="full" selected>Al raggiungimento dei giocatori</option>
+                <option value="scheduled">Orario programmato (Countdown)</option>
+              </select>
+            </div>
+            <div class="field-group hidden" id="tourn-schedule-group">
+              <label for="tourn-delay-minutes">Partenza tra (minuti)</label>
+              <select id="tourn-delay-minutes">
+                <option value="1">1 minuto</option>
+                <option value="2" selected>2 minuti</option>
+                <option value="5">5 minuti</option>
+                <option value="10">10 minuti</option>
+                <option value="15">15 minuti</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-close-modal="create-tournament-modal">
+              Annulla
+            </button>
+            <button type="submit" class="btn btn-gold">
+              Crea e Iscriviti
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modale Conferma Torneo Creato con Codice Copiabile -->
+    <div id="tournament-created-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="tourn-created-title">
+      <div class="modal-card modal-card-sm">
+        <div class="modal-header">
+          <h3 id="tourn-created-title">Torneo Creato</h3>
+          <button type="button" class="modal-close" data-close-modal="tournament-created-modal" aria-label="Chiudi">✕</button>
+        </div>
+        <div class="tourn-created-body">
+          <p id="tourn-created-subtitle" class="tourn-created-subtitle"></p>
+          <div class="invite-code-box">
+            <span class="invite-code-label">Codice Torneo</span>
+            <strong id="tourn-created-code" class="invite-code-value tabular-nums">------</strong>
+          </div>
+          <p id="tourn-created-hint" class="tourn-created-hint"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-copy-created-code" class="btn btn-gold">
+            Copia Codice
+          </button>
+          <button type="button" class="btn btn-ghost" data-close-modal="tournament-created-modal">
+            Chiudi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale Unisciti con Codice Privato -->
+    <div id="join-code-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="join-code-title">
+      <div class="modal-card modal-card-sm">
+        <div class="modal-header">
+          <h3 id="join-code-title">Torneo Privato</h3>
+          <button type="button" class="modal-close" data-close-modal="join-code-modal" aria-label="Chiudi">✕</button>
+        </div>
+        <form id="join-code-form" class="modal-form" autocomplete="off">
+          <div class="field-group">
+            <label for="private-code-input">Inserisci il codice invito o la password</label>
+            <input
+              id="private-code-input"
+              type="text"
+              maxlength="12"
+              required
+              placeholder="Es. POKER26"
+            />
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" data-close-modal="join-code-modal">Annulla</button>
+            <button type="submit" class="btn btn-gold">Entra nel Torneo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modale Scala Punti Texas Hold'em -->
+    <div id="hands-guide-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="hands-guide-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="hands-guide-title">Scala dei Punti · Texas Hold'em</h3>
+          <button type="button" class="modal-close" data-close-modal="hands-guide-modal" aria-label="Chiudi">✕</button>
+        </div>
+        <div class="hands-guide-list">
+          <div class="hand-rank-row"><strong>1. Scala Reale</strong><span>A-K-Q-J-10 dello stesso seme</span></div>
+          <div class="hand-rank-row"><strong>2. Scala Colore</strong><span>Cinque carte consecutive dello stesso seme</span></div>
+          <div class="hand-rank-row"><strong>3. Poker</strong><span>Quattro carte dello stesso valore</span></div>
+          <div class="hand-rank-row"><strong>4. Full House</strong><span>Un Tris più una Coppia</span></div>
+          <div class="hand-rank-row"><strong>5. Colore</strong><span>Cinque carte qualsiasi dello stesso seme</span></div>
+          <div class="hand-rank-row"><strong>6. Scala</strong><span>Cinque carte consecutive di semi misti</span></div>
+          <div class="hand-rank-row"><strong>7. Tris</strong><span>Tre carte dello stesso valore</span></div>
+          <div class="hand-rank-row"><strong>8. Doppia Coppia</strong><span>Due coppie diverse più una quinta carta</span></div>
+          <div class="hand-rank-row"><strong>9. Coppia</strong><span>Due carte dello stesso valore</span></div>
+          <div class="hand-rank-row"><strong>10. Carta Alta</strong><span>Vince la carta di valore più elevato</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenitore Toast Notifiche -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

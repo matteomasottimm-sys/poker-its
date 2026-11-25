@@ -1,0 +1,6 @@
+{
+  "name": "Circolo Hold'em — Poker Multiplayer",
+  "description": "Applicazione web di Poker Texas Hold'em Multiplayer in tempo reale con modalità Spin & Go, Tornei Pubblici e Privati, e valuta virtuale gratuita.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

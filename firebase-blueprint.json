@@ -1,0 +1,515 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profilo giocatore e portafoglio fiches virtuali (senza PII).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 18
+        },
+        "color": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 16
+        },
+        "balance": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "color", "balance", "createdAt", "updatedAt"]
+    },
+    "SpinQueue": {
+      "title": "SpinQueue",
+      "description": "Coda matchmaking 3-handed Spin & Go per singolo livello di buy-in.",
+      "type": "object",
+      "properties": {
+        "tier": {
+          "type": "number",
+          "enum": [100, 500, 1000, 2500, 5000]
+        },
+        "players": {
+          "type": "array",
+          "description": "Giocatori in coda (massimo 30 elementi)."
+        },
+        "playerIds": {
+          "type": "array",
+          "description": "UID dei giocatori in coda."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["tier", "players", "playerIds", "updatedAt"]
+    },
+    "SpinMatch": {
+      "title": "SpinMatch",
+      "description": "Notifica di abbinamento verso un tavolo Spin & Go creato.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tableId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAtMs": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "tableId", "createdBy", "createdAtMs", "createdAt"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Torneo Sit & Go o Multi-Tavolo pubblico o privato.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"]
+        },
+        "inviteCode": {
+          "type": "string",
+          "maxLength": 16
+        },
+        "inviteCodeHash": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "maxPlayers": {
+          "type": "number"
+        },
+        "buyIn": {
+          "type": "number"
+        },
+        "startingStack": {
+          "type": "number"
+        },
+        "blindSpeed": {
+          "type": "string",
+          "enum": ["slow", "normal", "turbo"]
+        },
+        "startMode": {
+          "type": "string",
+          "enum": ["full", "scheduled"]
+        },
+        "scheduledStartAt": {
+          "type": "number"
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "cancelledAt": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["registering", "running", "finished", "cancelled"]
+        },
+        "creatorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAtMs": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "players": {
+          "type": "array"
+        },
+        "playerIds": {
+          "type": "array"
+        },
+        "tableIds": {
+          "type": "array"
+        },
+        "finalTableId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "winnerName": {
+          "type": "string",
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "visibility",
+        "inviteCode",
+        "inviteCodeHash",
+        "maxPlayers",
+        "buyIn",
+        "startingStack",
+        "blindSpeed",
+        "startMode",
+        "status",
+        "creatorId",
+        "createdAtMs",
+        "createdAt",
+        "updatedAt",
+        "players",
+        "playerIds",
+        "tableIds",
+        "finalTableId",
+        "winnerName"
+      ]
+    },
+    "TournamentEntryPass": {
+      "title": "TournamentEntryPass",
+      "description": "Prova crittografica/codice per ingresso a torneo privato.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16
+        },
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["code", "uid", "createdAt"]
+    },
+    "TournamentCode": {
+      "title": "TournamentCode",
+      "description": "Indice diretto per entrare nei tornei tramite codice invito senza esporre l'elenco privato.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 16,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tournId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"]
+        },
+        "creatorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["code", "tournId", "visibility", "creatorId", "createdAt"]
+    },
+    "PokerTable": {
+      "title": "PokerTable",
+      "description": "Stato completo di un tavolo Texas Hold'em sincronizzato in tempo reale.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["spin", "tournament", "bots"]
+        },
+        "tournamentId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "isMultiTablePart": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "buyIn": {
+          "type": "number"
+        },
+        "multiplier": {
+          "type": "number"
+        },
+        "prizePool": {
+          "type": "number"
+        },
+        "payouts": {
+          "type": "array"
+        },
+        "blindSpeed": {
+          "type": "string",
+          "enum": ["spin", "slow", "normal", "turbo"]
+        },
+        "turnDurationMs": {
+          "type": "number"
+        },
+        "spinStartedAt": {
+          "type": "number"
+        },
+        "spinDurationMs": {
+          "type": "number"
+        },
+        "startedAt": {
+          "type": "number"
+        },
+        "phase": {
+          "type": "string",
+          "enum": ["SPINNING", "PREFLOP", "FLOP", "TURN", "RIVER", "SHOWDOWN", "TOURNAMENT_OVER"]
+        },
+        "handNumber": {
+          "type": "number"
+        },
+        "actionSeq": {
+          "type": "number"
+        },
+        "dealerIndex": {
+          "type": "number"
+        },
+        "turnIndex": {
+          "type": "number"
+        },
+        "turnDeadline": {
+          "type": "number"
+        },
+        "pot": {
+          "type": "number"
+        },
+        "pots": {
+          "type": "array"
+        },
+        "currentBet": {
+          "type": "number"
+        },
+        "minRaiseIncrement": {
+          "type": "number"
+        },
+        "smallBlind": {
+          "type": "number"
+        },
+        "bigBlind": {
+          "type": "number"
+        },
+        "deck": {
+          "type": "array"
+        },
+        "communityCards": {
+          "type": "array"
+        },
+        "players": {
+          "type": "array"
+        },
+        "playerIds": {
+          "type": "array"
+        },
+        "lastActionText": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "tableComplete": {
+          "type": "boolean"
+        },
+        "winnerName": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "mode",
+        "tournamentId",
+        "ownerId",
+        "title",
+        "buyIn",
+        "prizePool",
+        "payouts",
+        "blindSpeed",
+        "turnDurationMs",
+        "startedAt",
+        "phase",
+        "handNumber",
+        "actionSeq",
+        "dealerIndex",
+        "turnIndex",
+        "pot",
+        "pots",
+        "currentBet",
+        "minRaiseIncrement",
+        "smallBlind",
+        "bigBlind",
+        "deck",
+        "communityCards",
+        "players",
+        "playerIds",
+        "lastActionText",
+        "tableComplete",
+        "winnerName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TableChatMessage": {
+      "title": "TableChatMessage",
+      "description": "Messaggio di chat al tavolo associato ai partecipanti del tavolo.",
+      "type": "object",
+      "properties": {
+        "senderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sender": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "system": {
+          "type": "boolean"
+        },
+        "ts": {
+          "type": "number"
+        },
+        "tablePlayerIds": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["senderId", "sender", "text", "system", "ts", "tablePlayerIds", "createdAt"]
+    },
+    "ConnectionCheck": {
+      "title": "ConnectionCheck",
+      "description": "Documento di verifica connettività Firestore all'avvio.",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Profilo giocatore e saldo fiches virtuali isolato per singolo UID."
+    },
+    "/spinQueues/{tierId}": {
+      "schema": { "$ref": "#/entities/SpinQueue" },
+      "description": "Code matchmaking 3-handed Spin & Go per livello di buy-in."
+    },
+    "/spinMatches/{userId}": {
+      "schema": { "$ref": "#/entities/SpinMatch" },
+      "description": "Notifica personale di ingresso rapido a un tavolo Spin & Go appena formato."
+    },
+    "/tournaments/{tournId}": {
+      "schema": { "$ref": "#/entities/Tournament" },
+      "description": "Tornei Sit & Go e Multi-Tavolo pubblici e privati."
+    },
+    "/tournaments/{tournId}/entryPasses/{uid}": {
+      "schema": { "$ref": "#/entities/TournamentEntryPass" },
+      "description": "Pass di ingresso per tornei privati con codice verificato."
+    },
+    "/tournamentCodes/{code}": {
+      "schema": { "$ref": "#/entities/TournamentCode" },
+      "description": "Lookup diretto per codice invito senza esecuzione di query list."
+    },
+    "/tables/{tableId}": {
+      "schema": { "$ref": "#/entities/PokerTable" },
+      "description": "Tavoli attivi di poker (Spin & Go, Tornei, Bot)."
+    },
+    "/tables/{tableId}/chats/{msgId}": {
+      "schema": { "$ref": "#/entities/TableChatMessage" },
+      "description": "Messaggi della chat al tavolo vincolati ai partecipanti del tavolo padre."
+    },
+    "/test/connection": {
+      "schema": { "$ref": "#/entities/ConnectionCheck" },
+      "description": "Documento di test connettività Firestore all'avvio."
+    }
+  }
+}

@@ -1,0 +1,532 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // =========================================================================
+    // 1. GLOBAL SAFETY NET (Default Deny)
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 2. PRIMITIVE HELPERS
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // =========================================================================
+    // 3. ENTITY VALIDATION BLUEPRINTS
+    // =========================================================================
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['id', 'name', 'color', 'balance', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'name', 'color', 'balance', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.id == request.auth.uid
+        && isValidString(data.name, 2, 18)
+        && isValidString(data.color, 4, 16)
+        && data.balance is number
+        && data.balance >= 0
+        && data.balance <= 100000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSpinQueue(data) {
+      return data.keys().hasAll(['tier', 'players', 'playerIds', 'updatedAt'])
+        && data.keys().hasOnly(['tier', 'players', 'playerIds', 'updatedAt'])
+        && data.tier in [100, 500, 1000, 2500, 5000]
+        && data.players is list
+        && data.players.size() <= 30
+        && (data.players.size() == 0 || data.players[0] is map)
+        && data.playerIds is list
+        && data.playerIds.size() <= 30
+        && (data.playerIds.size() == 0 || data.playerIds[0] is string)
+        && data.players.size() == data.playerIds.size()
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSpinMatch(data) {
+      return data.keys().hasAll(['userId', 'tableId', 'createdBy', 'createdAtMs', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'tableId', 'createdBy', 'createdAtMs', 'createdAt'])
+        && isValidId(data.userId)
+        && isValidId(data.tableId)
+        && isValidId(data.createdBy)
+        && data.createdBy == request.auth.uid
+        && data.createdAtMs is number
+        && data.createdAtMs >= 0
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTournament(data) {
+      return data.keys().hasAll([
+          'id', 'name', 'visibility', 'inviteCode', 'inviteCodeHash',
+          'maxPlayers', 'buyIn', 'startingStack', 'blindSpeed', 'startMode',
+          'scheduledStartAt', 'startedAt', 'cancelledAt', 'status',
+          'creatorId', 'createdAtMs', 'createdAt', 'updatedAt',
+          'players', 'playerIds', 'tableIds', 'finalTableId', 'winnerName'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'visibility', 'inviteCode', 'inviteCodeHash',
+          'maxPlayers', 'buyIn', 'startingStack', 'blindSpeed', 'startMode',
+          'scheduledStartAt', 'startedAt', 'cancelledAt', 'status',
+          'creatorId', 'createdAtMs', 'createdAt', 'updatedAt',
+          'players', 'playerIds', 'tableIds', 'finalTableId', 'winnerName'
+        ])
+        && isValidId(data.id)
+        && isValidString(data.name, 1, 60)
+        && data.visibility in ['public', 'private']
+        && data.inviteCode is string
+        && data.inviteCode.size() <= 16
+        && (data.visibility == 'public' || data.inviteCode.size() == 0)
+        && data.inviteCodeHash is string
+        && data.inviteCodeHash.size() <= 128
+        && data.maxPlayers is number
+        && data.maxPlayers >= 2
+        && data.maxPlayers <= 18
+        && data.buyIn is number
+        && data.buyIn >= 0
+        && data.buyIn <= 100000
+        && data.startingStack is number
+        && data.startingStack >= 100
+        && data.startingStack <= 100000
+        && data.blindSpeed in ['slow', 'normal', 'turbo']
+        && data.startMode in ['full', 'scheduled']
+        && (data.scheduledStartAt == null || data.scheduledStartAt is number)
+        && (data.startedAt == null || data.startedAt is number)
+        && (data.cancelledAt == null || data.cancelledAt is number)
+        && data.status in ['registering', 'running', 'finished', 'cancelled']
+        && isValidId(data.creatorId)
+        && data.createdAtMs is number
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.players is list
+        && data.players.size() <= 18
+        && (data.players.size() == 0 || data.players[0] is map)
+        && data.playerIds is list
+        && data.playerIds.size() <= 18
+        && (data.playerIds.size() == 0 || data.playerIds[0] is string)
+        && data.players.size() == data.playerIds.size()
+        && data.tableIds is list
+        && data.tableIds.size() <= 4
+        && (data.tableIds.size() == 0 || data.tableIds[0] is string)
+        && data.finalTableId is string
+        && data.finalTableId.size() <= 128
+        && data.winnerName is string
+        && data.winnerName.size() <= 40;
+    }
+
+    function isValidEntryPass(data) {
+      return data.keys().hasAll(['code', 'uid', 'createdAt'])
+        && data.keys().hasOnly(['code', 'uid', 'createdAt'])
+        && isValidId(data.code)
+        && data.code.size() >= 2
+        && data.code.size() <= 16
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTournamentCode(data) {
+      return data.keys().hasAll(['code', 'tournId', 'visibility', 'creatorId', 'createdAt'])
+        && data.keys().hasOnly(['code', 'tournId', 'visibility', 'creatorId', 'createdAt'])
+        && isValidId(data.code)
+        && data.code.size() >= 2
+        && data.code.size() <= 16
+        && isValidId(data.tournId)
+        && data.visibility in ['public', 'private']
+        && isValidId(data.creatorId)
+        && data.creatorId == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTable(data) {
+      return data.keys().hasAll([
+          'id', 'mode', 'tournamentId', 'ownerId', 'isMultiTablePart',
+          'title', 'buyIn', 'multiplier', 'prizePool', 'payouts', 'blindSpeed',
+          'turnDurationMs', 'spinStartedAt', 'spinDurationMs', 'startedAt',
+          'phase', 'handNumber', 'actionSeq', 'dealerIndex', 'turnIndex',
+          'turnDeadline', 'pot', 'pots', 'currentBet', 'minRaiseIncrement',
+          'smallBlind', 'bigBlind', 'deck', 'communityCards', 'players',
+          'playerIds', 'lastActionText', 'pendingStep', 'showdownResults',
+          'nextHandAt', 'tableComplete', 'winnerName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'mode', 'tournamentId', 'ownerId', 'isMultiTablePart',
+          'title', 'buyIn', 'multiplier', 'prizePool', 'payouts', 'blindSpeed',
+          'turnDurationMs', 'spinStartedAt', 'spinDurationMs', 'startedAt',
+          'phase', 'handNumber', 'actionSeq', 'dealerIndex', 'turnIndex',
+          'turnDeadline', 'pot', 'pots', 'currentBet', 'minRaiseIncrement',
+          'smallBlind', 'bigBlind', 'deck', 'communityCards', 'players',
+          'playerIds', 'lastActionText', 'pendingStep', 'showdownResults',
+          'nextHandAt', 'tableComplete', 'winnerName', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.mode in ['spin', 'tournament', 'bots']
+        && data.tournamentId is string
+        && data.tournamentId.size() <= 128
+        && data.ownerId is string
+        && data.ownerId.size() <= 128
+        && data.isMultiTablePart is bool
+        && isValidString(data.title, 1, 80)
+        && data.buyIn is number
+        && data.buyIn >= 0
+        && (data.multiplier == null || data.multiplier is number)
+        && data.prizePool is number
+        && data.prizePool >= 0
+        && data.payouts is list
+        && data.payouts.size() <= 5
+        && data.blindSpeed in ['spin', 'slow', 'normal', 'turbo']
+        && data.turnDurationMs is number
+        && (data.spinStartedAt == null || data.spinStartedAt is number)
+        && (data.spinDurationMs == null || data.spinDurationMs is number)
+        && data.startedAt is number
+        && data.phase in ['SPINNING', 'PREFLOP', 'FLOP', 'TURN', 'RIVER', 'SHOWDOWN', 'TOURNAMENT_OVER']
+        && data.handNumber is number
+        && data.actionSeq is number
+        && data.dealerIndex is number
+        && data.turnIndex is number
+        && (data.turnDeadline == null || data.turnDeadline is number)
+        && data.pot is number
+        && data.pots is list
+        && data.pots.size() <= 9
+        && data.currentBet is number
+        && data.minRaiseIncrement is number
+        && data.smallBlind is number
+        && data.bigBlind is number
+        && data.deck is list
+        && data.deck.size() <= 52
+        && data.communityCards is list
+        && data.communityCards.size() <= 5
+        && data.players is list
+        && data.players.size() >= 1
+        && data.players.size() <= 9
+        && data.players[0] is map
+        && data.playerIds is list
+        && data.playerIds.size() >= 1
+        && data.playerIds.size() <= 9
+        && data.playerIds[0] is string
+        && data.lastActionText is string
+        && data.lastActionText.size() <= 180
+        && (data.pendingStep == null || data.pendingStep is map)
+        && (data.showdownResults == null || data.showdownResults is map)
+        && (data.nextHandAt == null || data.nextHandAt is number)
+        && data.tableComplete is bool
+        && data.winnerName is string
+        && data.winnerName.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['senderId', 'sender', 'text', 'system', 'ts', 'tablePlayerIds', 'createdAt'])
+        && data.keys().hasOnly(['senderId', 'sender', 'text', 'system', 'ts', 'tablePlayerIds', 'createdAt'])
+        && isValidId(data.senderId)
+        && data.senderId == request.auth.uid
+        && isValidString(data.sender, 1, 30)
+        && isValidString(data.text, 1, 160)
+        && data.system is bool
+        && data.ts is number
+        && data.tablePlayerIds is list
+        && data.tablePlayerIds.size() >= 1
+        && data.tablePlayerIds.size() <= 18
+        && data.tablePlayerIds[0] is string
+        && data.createdAt is timestamp;
+    }
+
+    function canAccessTableViaTournament(tournId) {
+      return tournId != ''
+        && exists(/databases/$(database)/documents/tournaments/$(tournId))
+        && request.auth.uid in get(/databases/$(database)/documents/tournaments/$(tournId)).data.playerIds;
+    }
+
+    // =========================================================================
+    // 4. COLLECTION RULES
+    // =========================================================================
+
+    // Connectivity health check document
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    // User Profiles & Play-Money Wallet (Zero PII, Strictly Owner-Scoped)
+    match /users/{userId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().balance == 10000
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'color', 'balance', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    // Spin & Go Matchmaking Queues
+    match /spinQueues/{tierId} {
+      allow get: if isVerifiedUser()
+        && isValidId(tierId)
+        && tierId in ['100', '500', '1000', '2500', '5000'];
+      allow list: if isVerifiedUser()
+        && existing().tier in [100, 500, 1000, 2500, 5000];
+      allow create: if isVerifiedUser()
+        && isValidId(tierId)
+        && isValidSpinQueue(incoming())
+        && incoming().playerIds.size() == 1
+        && incoming().playerIds[0] == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(tierId)
+        && isValidSpinQueue(incoming())
+        && incoming().tier == existing().tier
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['players', 'playerIds', 'updatedAt'])
+        && (
+          (!(request.auth.uid in existing().playerIds)
+            && request.auth.uid in incoming().playerIds
+            && incoming().playerIds.size() == existing().playerIds.size() + 1)
+          || (!(request.auth.uid in existing().playerIds)
+            && existing().playerIds.size() >= 2
+            && incoming().playerIds.size() == existing().playerIds.size() - 2)
+          || (request.auth.uid in existing().playerIds
+            && !(request.auth.uid in incoming().playerIds)
+            && incoming().playerIds.size() == existing().playerIds.size() - 1)
+        );
+      allow delete: if false;
+    }
+
+    // Spin & Go Match Notification (Validated against real table)
+    match /spinMatches/{userId} {
+      allow get: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidSpinMatch(incoming())
+        && incoming().userId == userId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/tables/$(incoming().tableId))
+        && userId in get(/databases/$(database)/documents/tables/$(incoming().tableId)).data.playerIds
+        && request.auth.uid in get(/databases/$(database)/documents/tables/$(incoming().tableId)).data.playerIds;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidSpinMatch(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['tableId', 'createdBy', 'createdAtMs', 'createdAt'])
+        && exists(/databases/$(database)/documents/tables/$(incoming().tableId))
+        && userId in get(/databases/$(database)/documents/tables/$(incoming().tableId)).data.playerIds
+        && request.auth.uid in get(/databases/$(database)/documents/tables/$(incoming().tableId)).data.playerIds;
+      allow delete: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+    }
+
+    // Tournaments (Public & Private Sit & Go / Multi-Table)
+    match /tournaments/{tournId} {
+      allow get: if isVerifiedUser() && isValidId(tournId);
+      allow list: if isVerifiedUser() && (existing().visibility in ['public', 'private']);
+      allow create: if isVerifiedUser()
+        && isValidId(tournId)
+        && isValidTournament(incoming())
+        && incoming().id == tournId
+        && incoming().creatorId == request.auth.uid
+        && incoming().status == 'registering'
+        && incoming().playerIds.size() == 1
+        && incoming().playerIds[0] == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(tournId)
+        && isValidTournament(incoming())
+        && !(existing().status in ['finished', 'cancelled'])
+        && incoming().id == existing().id
+        && incoming().creatorId == existing().creatorId
+        && incoming().visibility == existing().visibility
+        && incoming().inviteCode == existing().inviteCode
+        && incoming().inviteCodeHash == existing().inviteCodeHash
+        && incoming().buyIn == existing().buyIn
+        && incoming().startingStack == existing().startingStack
+        && incoming().maxPlayers == existing().maxPlayers
+        && incoming().blindSpeed == existing().blindSpeed
+        && incoming().startMode == existing().startMode
+        && incoming().scheduledStartAt == existing().scheduledStartAt
+        && incoming().createdAtMs == existing().createdAtMs
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Register player (private tournaments require verified entryPass)
+          (existing().status == 'registering'
+            && existing().playerIds.size() < existing().maxPlayers
+            && !(request.auth.uid in existing().playerIds)
+            && request.auth.uid in incoming().playerIds
+            && incoming().playerIds.size() == existing().playerIds.size() + 1
+            && (existing().visibility == 'public'
+              || exists(/databases/$(database)/documents/tournaments/$(tournId)/entryPasses/$(request.auth.uid))
+              || existsAfter(/databases/$(database)/documents/tournaments/$(tournId)/entryPasses/$(request.auth.uid)))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['players', 'playerIds', 'updatedAt']))
+          // Action: Unregister player
+          || (existing().status == 'registering'
+            && request.auth.uid in existing().playerIds
+            && !(request.auth.uid in incoming().playerIds)
+            && incoming().playerIds.size() == existing().playerIds.size() - 1
+            && incoming().diff(existing()).affectedKeys().hasOnly(['players', 'playerIds', 'updatedAt']))
+          // Action: Start or Cancel tournament
+          || (existing().status == 'registering'
+            && incoming().status in ['running', 'cancelled']
+            && (request.auth.uid in existing().playerIds || existing().creatorId == request.auth.uid)
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'startedAt', 'cancelledAt', 'tableIds', 'updatedAt']))
+          // Action: Consolidate Multi-Table Final Table
+          || (existing().status == 'running'
+            && existing().finalTableId == ''
+            && incoming().finalTableId.size() > 0
+            && request.auth.uid in existing().playerIds
+            && incoming().diff(existing()).affectedKeys().hasOnly(['finalTableId', 'updatedAt']))
+          // Action: Finish tournament (Terminal)
+          || (existing().status == 'running'
+            && incoming().status == 'finished'
+            && request.auth.uid in existing().playerIds
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'winnerName', 'updatedAt']))
+        );
+      allow delete: if false;
+
+      // Private Tournament Verified Entry Passes
+      match /entryPasses/{uid} {
+        allow get: if isVerifiedUser() && isValidId(tournId) && isValidId(uid) && isOwner(uid);
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(tournId)
+          && isValidId(uid)
+          && isOwner(uid)
+          && isValidEntryPass(incoming())
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/tournaments/$(tournId))
+          && exists(/databases/$(database)/documents/tournamentCodes/$(incoming().code))
+          && get(/databases/$(database)/documents/tournamentCodes/$(incoming().code)).data.tournId == tournId;
+        allow update, delete: if false;
+      }
+    }
+
+    // Direct Invite Code Index (Zero list scraping)
+    match /tournamentCodes/{code} {
+      allow get: if isVerifiedUser() && isValidId(code);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(code)
+        && isValidTournamentCode(incoming())
+        && incoming().code == code
+        && incoming().creatorId == request.auth.uid
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/tournaments/$(incoming().tournId))
+        && get(/databases/$(database)/documents/tournaments/$(incoming().tournId)).data.creatorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Poker Tables (Spin & Go, Tournaments, Bot Practice)
+    match /tables/{tableId} {
+      allow get: if isVerifiedUser()
+        && isValidId(tableId)
+        && (request.auth.uid in existing().playerIds || canAccessTableViaTournament(existing().tournamentId));
+      allow list: if isVerifiedUser() && (request.auth.uid in existing().playerIds);
+      allow create: if isVerifiedUser()
+        && isValidId(tableId)
+        && isValidTable(incoming())
+        && incoming().id == tableId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          request.auth.uid in incoming().playerIds
+          || canAccessTableViaTournament(incoming().tournamentId)
+        );
+      allow update: if isVerifiedUser()
+        && isValidId(tableId)
+        && isValidTable(incoming())
+        && existing().phase != 'TOURNAMENT_OVER'
+        && incoming().id == existing().id
+        && incoming().mode == existing().mode
+        && incoming().tournamentId == existing().tournamentId
+        && incoming().ownerId == existing().ownerId
+        && incoming().buyIn == existing().buyIn
+        && incoming().prizePool == existing().prizePool
+        && incoming().blindSpeed == existing().blindSpeed
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (request.auth.uid in existing().playerIds || canAccessTableViaTournament(existing().tournamentId))
+        && (
+          (existing().phase == 'SPINNING'
+            && incoming().phase == 'PREFLOP'
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'phase', 'handNumber', 'actionSeq', 'dealerIndex', 'turnIndex',
+              'turnDeadline', 'pot', 'pots', 'currentBet', 'minRaiseIncrement',
+              'smallBlind', 'bigBlind', 'deck', 'communityCards', 'players',
+              'lastActionText', 'pendingStep', 'showdownResults', 'nextHandAt',
+              'tableComplete', 'winnerName', 'updatedAt'
+            ]))
+          || (existing().phase in ['PREFLOP', 'FLOP', 'TURN', 'RIVER', 'SHOWDOWN']
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'phase', 'handNumber', 'actionSeq', 'dealerIndex', 'turnIndex',
+              'turnDeadline', 'pot', 'pots', 'currentBet', 'minRaiseIncrement',
+              'smallBlind', 'bigBlind', 'deck', 'communityCards', 'players',
+              'lastActionText', 'pendingStep', 'showdownResults', 'nextHandAt',
+              'tableComplete', 'winnerName', 'updatedAt'
+            ]))
+        );
+      allow delete: if false;
+
+      // Table Chat Subcollection (Master Gate against parent /tables/{tableId})
+      match /chats/{msgId} {
+        allow get: if isVerifiedUser()
+          && isValidId(tableId)
+          && isValidId(msgId)
+          && exists(/databases/$(database)/documents/tables/$(tableId))
+          && request.auth.uid in get(/databases/$(database)/documents/tables/$(tableId)).data.playerIds;
+        allow list: if isVerifiedUser()
+          && isValidId(tableId)
+          && request.auth.uid in existing().tablePlayerIds;
+        allow create: if isVerifiedUser()
+          && isValidId(tableId)
+          && isValidId(msgId)
+          && isValidChatMessage(incoming())
+          && incoming().senderId == request.auth.uid
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/tables/$(tableId))
+          && request.auth.uid in get(/databases/$(database)/documents/tables/$(tableId)).data.playerIds
+          && incoming().tablePlayerIds == get(/databases/$(database)/documents/tables/$(tableId)).data.playerIds;
+        allow update, delete: if false;
+      }
+    }
+  }
+}
